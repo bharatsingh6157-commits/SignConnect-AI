@@ -8,5 +8,6 @@ streamlit-lottie
 requests
 streamlit-webrtc
 av
+protobuf<4
 streamlit-option-menu
 tornado<6.3
