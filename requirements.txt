@@ -6,7 +6,8 @@ matplotlib
 streamlit
 streamlit-lottie
 requests
-streamlit-webrtc
-av
+streamlit-webrtc==0.45.1
+av==10.0.0
 protobuf>=3.20,<5
 streamlit-option-menu
+tornado>=6.0.3,<6.3
