@@ -394,10 +394,12 @@ elif page == "Interactive Quiz":
     st.markdown("<h1 class='main-title'>Interactive Quiz 🎮</h1>", unsafe_allow_html=True)
     st.write("Show the sign for the letter displayed on the screen.")
     
+    import random
     if 'quiz_letter' not in st.session_state:
-        import random
         st.session_state['quiz_letter'] = random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
         st.session_state['quiz_score'] = 0
+    if 'quiz_correct' not in st.session_state:
+        st.session_state['quiz_correct'] = False
         
     st.markdown(f"<h2 style='text-align: center; color: {accent};'>Score: {st.session_state['quiz_score']}</h2>", unsafe_allow_html=True)
     st.markdown(f"<h1 style='text-align: center; font-size: 8rem; color: #ffcc00; text-shadow: 0 0 20px rgba(255, 204, 0, 0.4);'>{st.session_state['quiz_letter']}</h1>", unsafe_allow_html=True)
@@ -405,82 +407,92 @@ elif page == "Interactive Quiz":
     colA, colB = st.columns(2)
     with colA:
         if st.button("Skip Letter", use_container_width=True):
-            import random
             st.session_state['quiz_letter'] = random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+            st.session_state['quiz_correct'] = False
             st.rerun()
     with colB:
         if st.button("Reset Score", use_container_width=True, type="primary"):
             st.session_state['quiz_score'] = 0
+            st.session_state['quiz_correct'] = False
             st.rerun()
-        
-    run_quiz = st.checkbox('🔴 Start Quiz Webcam')
-    FRAME_WINDOW_QUIZ = st.empty()
+
+    if st.session_state.get('quiz_correct'):
+        st.success(f"✅ Correct! You signed '{st.session_state['quiz_letter']}' perfectly!")
+        if st.button("Next Letter ➡️", use_container_width=True, type="primary"):
+            st.session_state['quiz_score'] += 1
+            st.session_state['quiz_letter'] = random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+            st.session_state['quiz_correct'] = False
+            st.rerun()
     
-    if run_quiz:
-        if model is None:
-            st.error("Error: model.p not found! Please train the model using train_model.py first.")
-            st.stop()
-            
-        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-        mp_hands = mp.solutions.hands
-        hands = mp_hands.Hands(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
-        mp_drawing = mp.solutions.drawing_utils
-        mp_drawing_styles = mp.solutions.drawing_styles
+    if model is None:
+        st.error("Error: model.p not found!")
+    else:
+        target_letter = st.session_state['quiz_letter']
         
-        consistent_frames = 0
-        
-        try:
-            while run_quiz:
-                ret, frame = cap.read()
-                if not ret: break
-                
-                H, W, _ = frame.shape
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                results = hands.process(frame_rgb)
-                
+        class QuizProcessor(VideoTransformerBase):
+            def __init__(self):
+                self.mp_hands = mp.solutions.hands
+                self.hands = self.mp_hands.Hands(static_image_mode=False, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+                self.mp_drawing = mp.solutions.drawing_utils
+                self.mp_drawing_styles = mp.solutions.drawing_styles
+                self.consistent_frames = 0
+                self.correct = False
+
+            def recv(self, frame):
+                img = frame.to_ndarray(format="bgr24")
+                H, W, _ = img.shape
+                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                results = self.hands.process(img_rgb)
+                prediction_text = "-"
+
                 if results.multi_hand_landmarks:
                     hand_landmarks = results.multi_hand_landmarks[0]
-                    mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS, mp_drawing_styles.get_default_hand_landmarks_style(), mp_drawing_styles.get_default_hand_connections_style())
-                    
-                    data_aux = []
-                    x_ = []
-                    y_ = []
-                    for i in range(len(hand_landmarks.landmark)):
-                        x_.append(hand_landmarks.landmark[i].x)
-                        y_.append(hand_landmarks.landmark[i].y)
-                    for i in range(len(hand_landmarks.landmark)):
-                        data_aux.append(hand_landmarks.landmark[i].x - min(x_))
-                        data_aux.append(hand_landmarks.landmark[i].y - min(y_))
-                        
+                    self.mp_drawing.draw_landmarks(
+                        img, hand_landmarks, self.mp_hands.HAND_CONNECTIONS,
+                        self.mp_drawing_styles.get_default_hand_landmarks_style(),
+                        self.mp_drawing_styles.get_default_hand_connections_style())
+
+                    data_aux, x_, y_ = [], [], []
+                    for lm in hand_landmarks.landmark:
+                        x_.append(lm.x)
+                        y_.append(lm.y)
+                    for lm in hand_landmarks.landmark:
+                        data_aux.append(lm.x - min(x_))
+                        data_aux.append(lm.y - min(y_))
+
                     if len(data_aux) == 42:
                         try:
-                            prediction = str(model.predict([np.asarray(data_aux)])[0])
-                            x1 = int(min(x_) * W) - 10
-                            y1 = int(min(y_) * H) - 10
-                            
-                            rect_color = (254, 242, 0) if dark_mode else (200, 100, 0)
-                            cv2.putText(frame, prediction, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, rect_color, 2, cv2.LINE_AA)
-                            
-                            if prediction == st.session_state['quiz_letter']:
-                                consistent_frames += 1
-                                if consistent_frames > 15:
-                                    break
+                            prediction_text = str(model.predict([np.asarray(data_aux)])[0])
+                            if prediction_text == target_letter:
+                                self.consistent_frames += 1
+                                if self.consistent_frames > 20:
+                                    self.correct = True
                             else:
-                                consistent_frames = 0
+                                self.consistent_frames = 0
                         except:
                             pass
-                            
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                FRAME_WINDOW_QUIZ.image(frame, use_container_width=True)
-        finally:
-            cap.release()
-            
-        if consistent_frames > 15:
-            st.session_state['quiz_score'] += 1
-            import random
-            st.session_state['quiz_letter'] = random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
-            st.success("Correct!")
+
+                color = (0, 255, 0) if prediction_text == target_letter else (0, 200, 255)
+                cv2.rectangle(img, (0, 0), (W, 80), (0, 0, 0), -1)
+                cv2.putText(img, f"Sign: {target_letter}  |  Predict: {prediction_text}", (10, 55),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 2)
+
+                return av.VideoFrame.from_ndarray(img, format="bgr24")
+
+        ctx = webrtc_streamer(
+            key="quiz",
+            video_processor_factory=QuizProcessor,
+            rtc_configuration=RTC_CONFIGURATION,
+            media_stream_constraints={"video": True, "audio": False}
+        )
+
+        if ctx and ctx.video_processor and ctx.video_processor.correct:
+            st.session_state['quiz_correct'] = True
             st.rerun()
+
+
+
+
 
 elif page == "Text-to-Sign Converter":
     st.markdown("<h1 class='main-title'>Text-to-Sign Converter 🔠</h1>", unsafe_allow_html=True)
