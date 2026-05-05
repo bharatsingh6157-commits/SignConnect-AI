@@ -11,7 +11,13 @@ import os
 from streamlit_webrtc import webrtc_streamer, VideoTransformerBase, RTCConfiguration
 import av
 
-RTC_CONFIGURATION = RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
+RTC_CONFIGURATION = RTCConfiguration({"iceServers": [
+    {"urls": ["stun:stun.l.google.com:19302"]},
+    {"urls": ["stun:stun1.l.google.com:19302"]},
+    {"urls": ["stun:stun2.l.google.com:19302"]},
+    {"urls": ["stun:stun3.l.google.com:19302"]},
+    {"urls": ["stun:stun4.l.google.com:19302"]}
+]})
 def load_lottieurl(url: str):
     try:
         r = requests.get(url)
@@ -307,7 +313,7 @@ elif page == "Live Translator":
             self.last_added_letter = None
             self.frames_no_hand = 0
 
-        def transform(self, frame):
+        def recv(self, frame):
             img = frame.to_ndarray(format="bgr24")
             H, W, _ = img.shape
             
@@ -374,7 +380,7 @@ elif page == "Live Translator":
             cv2.putText(img, f"Predict: {current_prediction}", (20, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
             cv2.putText(img, f"Word: {self.built_word}", (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
             
-            return img
+            return av.VideoFrame.from_ndarray(img, format="bgr24")
 
     with col2:
         webrtc_streamer(
