@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Streamlit specific
+# (We want to keep .streamlit/config.toml, so we only ignore secrets)
+.streamlit/secrets.toml
+
+# Ignore large datasets
+data/
+

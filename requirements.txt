@@ -1,0 +1,10 @@
+opencv-python
+mediapipe
+scikit-learn
+numpy
+matplotlib
+streamlit
+streamlit-lottie
+requests
+streamlit-webrtc
+av
