@@ -9,3 +9,4 @@ requests
 streamlit-webrtc
 av
 streamlit-option-menu
+tornado<6.3
