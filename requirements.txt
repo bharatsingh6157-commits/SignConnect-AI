@@ -8,3 +8,4 @@ streamlit-lottie
 requests
 streamlit-webrtc
 av
+streamlit-option-menu
