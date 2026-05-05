@@ -1,5 +1,5 @@
-opencv-python-headless
-mediapipe
+opencv-python-headless==4.8.1.78
+mediapipe==0.10.9
 scikit-learn
 numpy
 matplotlib
@@ -8,6 +8,6 @@ streamlit-lottie
 requests
 streamlit-webrtc
 av
-protobuf<4
+protobuf>=3.20,<4
 streamlit-option-menu
 tornado<6.3
